@@ -1,5 +1,7 @@
 # Hermes Web UI
 
+![Hermes Web UI](hermes.png)
+
 基于 Web 的 [Hermes Agent](https://hermes-agent.nousresearch.com) 聊天界面。实时显示工具调用、思考过程、推理和流式响应 —— TUI 能展示的一切，在浏览器里也能看到。
 
 ## 特性

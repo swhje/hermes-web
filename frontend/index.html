@@ -1310,6 +1310,7 @@ function handleEvent(d) {
       removeReasoning();
       const combinedReason = [thinkText, reasonText].filter(Boolean).join('\n');
       addToolCard(d.id,d.name,d.args,combinedReason);
+      moveBubbleAfterTools();
       break;
     case'tool_complete': updateToolCard(d.id,d.name,d.result); if(d.context) updateContextUsage(d.context); break;
     case'delta': streamDelta(d.content); break;
@@ -1467,6 +1468,18 @@ function renderStreaming(t) {
     .replace(/```[\s\S]*?```/g, m => '<code>' + m.slice(3,-3).replace(/</g,'&lt;') + '</code>')
     .replace(/`([^`]+)`/g, '<code>$1</code>')
     .replace(/\n/g, '<br>');
+}
+
+// 当工具卡片先出现而气泡已存在时，把气泡移到所有工具卡片后面
+function moveBubbleAfterTools() {
+  if (!currentAssistantBubble) return;
+  const bubbleDiv = currentAssistantBubble.closest('.message.assistant');
+  if (!bubbleDiv) return;
+  const container = getContainer();
+  const cards = container.querySelectorAll('.tool-card');
+  if (cards.length === 0) return;
+  const lastCard = cards[cards.length - 1];
+  container.insertBefore(bubbleDiv, lastCard.nextSibling);
 }
 
 let streamFullText = '';
