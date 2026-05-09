@@ -96,4 +96,4 @@ hermes-web/
 - 前端是单个 HTML 文件 —— 不需要 npm，不需要构建步骤
 - 对话保存为 JSON 文件，存储在 `~/.hermes/hermes-web/conversations/`
 - 默认最多保留 100 个对话（自动删除最旧的）
-- 如果终端配置了代理，在中国防火墙后也能正常使用
+
