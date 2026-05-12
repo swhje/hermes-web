@@ -40,22 +40,6 @@ python3 backend.py 3005
 ~/.hermes/hermes-agent/venv/bin/python3.11 backend.py 3005
 ```
 
-## 配置
-
-### 模型 & 提供商
-
-点击右上角 ⚙ 图标打开设置面板：
-
-| 字段 | 说明 | 示例 |
-|------|------|------|
-| Model | 模型名称 | `deepseek-v4-flash` |
-| Provider | API 提供商 | `deepseek` |
-| API 地址 | 自定义 API 地址 | `https://api.deepseek.com/v1` |
-| API 密钥 | API key | `sk-...` |
-| 最大迭代 | 最大工具调用轮次 | `60` |
-
-后端默认继承终端环境中的代理设置（`HTTP_PROXY` / `HTTPS_PROXY`）。
-
 ### 端口
 
 ```bash
