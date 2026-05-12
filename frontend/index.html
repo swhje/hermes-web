@@ -970,7 +970,7 @@
       <span class="hermes-badge">Hermes</span>
       <span class="status-dot" id="statusDot"></span>
       <span class="status-text" id="statusText">未连接</span>
-      <button class="btn-icon" onclick="openSettings()" title="设置">⚙</button>
+
     </div>
   </div>
 
@@ -996,58 +996,7 @@
   </div>
 </div>
 
-<!-- Settings modal -->
-<div class="modal-overlay" id="settingsModal">
-  <div class="modal">
-    <div class="modal-header">
-      <h2>⚙ 设置</h2>
-      <button class="modal-close" onclick="closeSettings()">✕</button>
-    </div>
-    <div class="section-divider">🔌 连接设置</div>
-    <div class="form-group">
-      <label>模型 (Model)</label>
-      <input type="text" id="cfgModel" placeholder="deepseek-v4-flash">
-    </div>
-    <div class="form-group">
-      <label>提供商</label>
-      <select id="cfgProvider">
-        <option value="deepseek">DeepSeek</option>
-        <option value="anthropic">Anthropic</option>
-        <option value="openai">OpenAI</option>
-        <option value="openrouter">OpenRouter</option>
-        <option value="google">Google</option>
-        <option value="custom">自定义</option>
-      </select>
-    </div>
-    <div class="form-group">
-      <label>API 地址</label>
-      <input type="text" id="cfgBaseUrl" placeholder="留空使用默认地址">
-    </div>
-    <div class="form-group">
-      <label>API 密钥</label>
-      <input type="password" id="cfgApiKey" placeholder="留空使用环境变量">
-      <div class="api-key-warning">⚠ 仅当前会话有效</div>
-    </div>
 
-    <div class="section-divider">⚡ 高级设置</div>
-    <div class="form-row">
-      <div class="form-group">
-        <label>最大迭代</label>
-        <input type="number" id="cfgIterations" value="60" min="1" max="200">
-      </div>
-      <div class="form-group">
-        <label>当前模型</label>
-        <input type="text" id="currentModelDisplay" disabled style="opacity:0.5;">
-      </div>
-    </div>
-
-    <div class="modal-actions">
-      <span class="save-status" id="saveStatus">✓ 已保存</span>
-      <button class="btn btn-secondary" onclick="closeSettings()">取消</button>
-      <button class="btn btn-primary" onclick="saveSettings()">保存</button>
-    </div>
-  </div>
-</div>
 
 <script>
 const WS_URL = `ws://${location.host}/ws/chat`;
@@ -1064,7 +1013,18 @@ function getContainer() { return currentTurn || document.getElementById('chatCon
 
 function connect() {
   ws = new WebSocket(WS_URL);
-  ws.onopen = () => { setStatus('已连接', '#22c55e'); refreshSidebar(); };
+  ws.onopen = async () => {
+    setStatus('已连接', '#22c55e');
+    // 获取对话列表，如果有历史对话则自动加载第一个
+    try {
+      const r = await fetch('/api/conversations?_=' + Date.now(), {cache: 'no-store'});
+      const convs = await r.json();
+      renderSidebar(convs);
+      if (convs && convs.length > 0) {
+        switchChat(convs[0].id);
+      }
+    } catch(e) { console.error('Failed to load conversations', e); }
+  };
   ws.onclose = () => { setStatus('未连接', '#ef4444'); if (!isProcessing) setTimeout(connect, 2000); };
   ws.onerror = () => ws.close();
   ws.onmessage = (e) => handleEvent(JSON.parse(e.data));
@@ -1075,19 +1035,7 @@ function setStatus(t, c) {
   document.getElementById('statusDot').style.background = c;
 }
 
-let currentConfig = {};
-function openSettings() { document.getElementById('settingsModal').classList.add('open'); }
-function closeSettings() { document.getElementById('settingsModal').classList.remove('open'); }
-function saveSettings() {
-  const cfg = {type:'configure', model:document.getElementById('cfgModel').value.trim(), provider:document.getElementById('cfgProvider').value,
-    base_url:document.getElementById('cfgBaseUrl').value.trim(), api_key:document.getElementById('cfgApiKey').value.trim(),
-    max_iterations:parseInt(document.getElementById('cfgIterations').value)||60};
-  if (!cfg.api_key) delete cfg.api_key;
-  if (!cfg.base_url) delete cfg.base_url;
-  if (ws?.readyState===WebSocket.OPEN) ws.send(JSON.stringify(cfg));
-  const s=document.getElementById('saveStatus'); s.textContent='✓ 已保存'; s.classList.add('show');
-  setTimeout(()=>s.classList.remove('show'),2000);
-}
+
 
 // ── Sidebar: conversation list ──
 async function refreshSidebar() {
@@ -1189,16 +1137,28 @@ async function doDelete() {
     });
     if (!r.ok) { alert('删除失败 (HTTP ' + r.status + ')'); return; }
 
-    // 如果是当前对话，清空聊天区但不自动创建新对话
+    // 如果是当前对话，自动切换到第一个剩余对话或显示欢迎页
     if (currentConvId === convId) {
       currentConvId = null;
       clearChat();
-      const container = document.getElementById('chatContainer');
-      container.innerHTML = `<div class="welcome" id="welcomeScreen">
-        <h2 id="welcomeTitle">✦ deepseek-v4-flash</h2>
-        <p id="welcomeDesc">随时可以输入你的问题</p>
-      </div>`;
-      window._hasMessages = false;
+      // 先获取删除后的列表来判断
+      await new Promise(r => setTimeout(r, 200));
+      const afterRes = await fetch('/api/conversations?_=' + Date.now(), {cache: 'no-store'});
+      const after = await afterRes.json();
+      if (after && after.length > 0) {
+        switchChat(after[0].id);
+        renderSidebar(after);
+        return;
+      } else {
+        const container = document.getElementById('chatContainer');
+        container.innerHTML = `<div class="welcome" id="welcomeScreen">
+          <h2 id="welcomeTitle">✦ deepseek-v4-flash</h2>
+          <p id="welcomeDesc">随时可以输入你的问题</p>
+        </div>`;
+        window._hasMessages = false;
+        renderSidebar(after);
+        return;
+      }
     }
 
     // 强制刷新侧边栏
@@ -1229,17 +1189,16 @@ function handleEvent(d) {
   switch(d.type){
     case'config_loaded':
       currentConfig=d;
-      currentConvId = d.conv_id;
-      document.getElementById('welcomeTitle').textContent=`✦ ${d.model||'Hermes Agent'}`;
-      document.getElementById('welcomeDesc').textContent = '随时可以输入你的问题';
-      document.getElementById('cfgModel').value=d.model||'';
-      document.getElementById('cfgProvider').value=d.provider||'';
-      document.getElementById('cfgBaseUrl').value=d.base_url||'';
-      document.getElementById('currentModelDisplay').value=d.model||'';
+      if (d.conv_id) {
+        currentConvId = d.conv_id;
+        refreshSidebar();
+      }
+      const welcomeTitle = document.getElementById('welcomeTitle');
+      const welcomeDesc = document.getElementById('welcomeDesc');
+      if (welcomeTitle) welcomeTitle.textContent = `✦ ${d.model||'Hermes Agent'}`;
+      if (welcomeDesc) welcomeDesc.textContent = '随时可以输入你的问题';
       document.getElementById('headerTitle').textContent = d.model || 'Hermes Agent';
-      // 初始加载显示空上下文条
       showEmptyContext();
-      refreshSidebar();
       break;
     case'load_conversation':
       // 加载对话事件也要校验 conv_id，防止旧响应覆盖当前对话

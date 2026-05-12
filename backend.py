@@ -213,6 +213,9 @@ async def get_conversation(conv_id: str):
 @app.delete("/api/conversations/{conv_id}")
 async def remove_conversation(conv_id: str):
     delete_conversation(conv_id)
+    # 如果删的是当前对话，重置 session 状态
+    if session.conv_id == conv_id:
+        session.conv_id = None
     return {"ok": True}
 
 
